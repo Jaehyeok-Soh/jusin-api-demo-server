@@ -2,7 +2,7 @@ name: Deploy to EC2
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master ]  # ← 여기!! 드디어 master
 
 jobs:
   deploy:
@@ -18,7 +18,7 @@ jobs:
         host: ${{ secrets.EC2_HOST }}
         username: ${{ secrets.EC2_USER }}
         key: ${{ secrets.EC2_KEY }}
-        source: "JusinChatServer/JusinChatServer/bin/Release/net6.0/JusinChatServer.exe"
+        source: "JusinChatServer/JusinChatServer/bin/Release/net8.0/JusinChatServer.exe"
         target: "/home/ubuntu/JusinChatServer/"
 
     - name: Restart server
@@ -30,4 +30,5 @@ jobs:
         script: |
           pkill -f JusinChatServer || true
           cd ~/JusinChatServer
-          nohup ./JusinChatServer.exe > output.log 2>&1 &
+          chmod +x ./JusinChatServer.exe
+          nohup ./JusinChatServer.exe
