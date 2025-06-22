@@ -28,12 +28,10 @@ jobs:
         username: ${{ secrets.EC2_USER }}
         key: ${{ secrets.EC2_KEY }}
         script: |
-            pkill -f JusinChatServer || true
-            cd ~/JusinChatServerSrc
-            dotnet publish -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=True -o output
-            cd output
-            chmod +x JusinChatServer
-            nohup ./JusinChatServer > output.log 2>&1 &
-
-
-
+          pkill -f JusinChatServer || true
+          cd ~/JusinChatServerSrc
+          dotnet publish -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=True -o output
+          cd output
+          chmod +x JusinChatServer
+          nohup ./JusinChatServer > output.log 2>&1 &
+          sleep 5
