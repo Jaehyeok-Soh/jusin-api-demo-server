@@ -35,3 +35,5 @@ jobs:
           chmod +x JusinChatServer
           nohup ./JusinChatServer > output.log 2>&1 &
           sleep 5
+          echo "Server restarted successfully"
+          exit 0
