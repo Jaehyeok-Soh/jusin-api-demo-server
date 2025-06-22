@@ -28,14 +28,12 @@ jobs:
         username: ${{ secrets.EC2_USER }}
         key: ${{ secrets.EC2_KEY }}
         script: |
-          sudo apt update
-          sudo apt install -y dotnet-sdk-8.0 || true
+              sudo apt update
+              sudo apt install -y dotnet-sdk-8.0 || true
+              pkill -f JusinChatServer || true
+              cd ~/JusinChatServerSrc
+              dotnet publish -c Release -o output
+              cd output
+              nohup dotnet JusinChatServer.dll > output.log 2>&1 &
+              disown
 
-          pkill -f JusinChatServer || true
-
-          cd ~/JusinChatServerSrc
-          dotnet publish -c Release -o output
-
-          cd output
-          nohup dotnet JusinChatServer.dll > output.log 2>&1 &
-          sleep 10
