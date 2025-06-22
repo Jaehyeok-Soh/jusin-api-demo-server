@@ -36,4 +36,11 @@ jobs:
           nohup ./JusinChatServer > output.log 2>&1 & disown
           sleep 5
           echo "Server restarted successfully"
-          exit 0
+
+    - name: Tail last 10 lines of server log
+      shell: bash
+      run: |
+        echo "${{ secrets.EC2_KEY }}" > key.pem
+        chmod 600 key.pem
+        ssh -o StrictHostKeyChecking=no -i key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
+          'tail -n 10 ~/JusinChatServerSrc/output/output.log'
