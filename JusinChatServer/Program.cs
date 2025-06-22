@@ -129,12 +129,11 @@ namespace JusinChatServer
 
             if (listJoinMsg.Count > 0 && listJoinMsg.Count < 3)
             {
+                byte[] data = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(listJoinMsg));
                 foreach (var item in currentSession.Members)
                 {
                     var stream = item.Client.GetStream();
-                    var writer = new StreamWriter(stream) {  AutoFlush = true };
-                    string msg = JsonConvert.SerializeObject(listJoinMsg) + "\n";
-                    await writer.WriteAsync(msg);
+                    await stream.WriteAsync(data, 0, data.Length);
                 }
             }
         }
