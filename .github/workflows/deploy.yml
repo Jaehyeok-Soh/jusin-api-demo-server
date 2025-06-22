@@ -33,7 +33,7 @@ jobs:
           dotnet publish -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=True -o output
           cd output
           chmod +x JusinChatServer
-          nohup ./JusinChatServer > output.log 2>&1 &
+          nohup ./JusinChatServer > output.log 2>&1 & disown
           sleep 5
           echo "Server restarted successfully"
           exit 0
