@@ -30,10 +30,13 @@ jobs:
         script: |
               sudo apt update
               sudo apt install -y dotnet-sdk-8.0 || true
+
               pkill -f JusinChatServer || true
+
               cd ~/JusinChatServerSrc
               dotnet publish -c Release -o output
+
               cd output
-              nohup dotnet JusinChatServer.dll > output.log 2>&1 &
-              disown
+              setsid dotnet JusinChatServer.dll > output.log 2>&1 < /dev/null &
+
 
