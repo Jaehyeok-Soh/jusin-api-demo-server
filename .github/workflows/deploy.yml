@@ -18,10 +18,10 @@ jobs:
         host: ${{ secrets.EC2_HOST }}
         username: ${{ secrets.EC2_USER }}
         key: ${{ secrets.EC2_KEY }}
-        source: "JusinChatServer/"
+        source: "."
         target: "/home/ubuntu/JusinChatServerSrc"
 
-    - name: Build and Run on EC2
+    - name: Build & Restart server
       uses: appleboy/ssh-action@v1.0.0
       with:
         host: ${{ secrets.EC2_HOST }}
@@ -30,9 +30,12 @@ jobs:
         script: |
           sudo apt update
           sudo apt install -y dotnet-sdk-8.0 || true
+
           pkill -f JusinChatServer || true
+
           cd ~/JusinChatServerSrc
           dotnet publish -c Release -o output
+
           cd output
           chmod +x JusinChatServer
-          nohup ./JusinChatServer > output.log 2>&1 &
+          nohup dotnet JusinChatServer.dll > output.log 2>&1 &
