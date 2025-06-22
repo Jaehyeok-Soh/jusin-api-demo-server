@@ -132,8 +132,9 @@ namespace JusinChatServer
                 foreach (var item in currentSession.Members)
                 {
                     var stream = item.Client.GetStream();
-                    byte[] data = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(listJoinMsg));
-                    await stream.WriteAsync(data, 0, data.Length);
+                    var writer = new StreamWriter(stream) {  AutoFlush = true };
+                    string msg = JsonConvert.SerializeObject(listJoinMsg) + "\n";
+                    await writer.WriteAsync(msg);
                 }
             }
         }
