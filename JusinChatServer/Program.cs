@@ -130,10 +130,22 @@ namespace JusinChatServer
             if (listJoinMsg.Count > 0 && listJoinMsg.Count < 3)
             {
                 byte[] data = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(listJoinMsg));
+                //foreach (var item in currentSession.Members)
+                //{
+                //    var stream = item.Client.GetStream();
+                //    await stream.WriteAsync(data, 0, data.Length);
+                //}
                 foreach (var item in currentSession.Members)
                 {
                     var stream = item.Client.GetStream();
-                    await stream.WriteAsync(data, 0, data.Length);
+                    var writer = new StreamWriter(stream, Encoding.UTF8)
+                    {
+                        AutoFlush = true
+                    };
+
+                    string msg = JsonConvert.SerializeObject(listJoinMsg);
+                    await writer.WriteLineAsync(msg); // <- 이걸로 명확하게 개행
+                    await writer.FlushAsync(); // <- 보조적으로 강제 플러시
                 }
             }
         }
