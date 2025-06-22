@@ -2,7 +2,7 @@ name: Deploy to EC2
 
 on:
   push:
-    branches: [ master ]  # ← 여기!! 드디어 master
+    branches: [ master ]
 
 jobs:
   deploy:
@@ -12,23 +12,27 @@ jobs:
     - name: Checkout repo
       uses: actions/checkout@v3
 
-    - name: Upload binary to EC2
+    - name: Upload source to EC2
       uses: appleboy/scp-action@v0.1.3
       with:
         host: ${{ secrets.EC2_HOST }}
         username: ${{ secrets.EC2_USER }}
         key: ${{ secrets.EC2_KEY }}
-        source: "JusinChatServer/JusinChatServer/bin/Release/net8.0/JusinChatServer.exe"
-        target: "/home/ubuntu/JusinChatServer/"
+        source: "JusinChatServer/"
+        target: "/home/ubuntu/JusinChatServerSrc"
 
-    - name: Restart server
+    - name: Build and Run on EC2
       uses: appleboy/ssh-action@v1.0.0
       with:
         host: ${{ secrets.EC2_HOST }}
         username: ${{ secrets.EC2_USER }}
         key: ${{ secrets.EC2_KEY }}
         script: |
+          sudo apt update
+          sudo apt install -y dotnet-sdk-8.0 || true
           pkill -f JusinChatServer || true
-          cd ~/JusinChatServer
-          chmod +x ./JusinChatServer.exe
-          nohup ./JusinChatServer.exe
+          cd ~/JusinChatServerSrc
+          dotnet publish -c Release -o output
+          cd output
+          chmod +x JusinChatServer
+          nohup ./JusinChatServer > output.log 2>&1 &
