@@ -1,0 +1,33 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v3
+
+    - name: Upload binary to EC2
+      uses: appleboy/scp-action@v0.1.3
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_KEY }}
+        source: "JusinChatServer/JusinChatServer/bin/Release/net6.0/JusinChatServer.exe"
+        target: "/home/ubuntu/JusinChatServer/"
+
+    - name: Restart server
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_KEY }}
+        script: |
+          pkill -f JusinChatServer || true
+          cd ~/JusinChatServer
+          nohup ./JusinChatServer.exe > output.log 2>&1 &
