@@ -3,8 +3,6 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using Newtonsoft.Json;
-using MongoDB.Bson;
-using System.Security.Claims;
 
 namespace JusinChatServer
 {
@@ -16,6 +14,7 @@ namespace JusinChatServer
 
         static bool lastTeam = true;
         static int gId = 0;
+        static bool init = true;
 
         private static async Task Main()
         {
@@ -36,7 +35,7 @@ namespace JusinChatServer
                 if (sessionList[sessionList.Count - 1].Members.Count < 3 && !sessionList[sessionList.Count - 1].isStart)
                 {
                     var connectInfo = new ConnectInfoModel()
-                    {
+                    { 
                         isHost = sessionList[sessionList.Count - 1].Members.Count == 0,
                         netId = client.Client.Handle.ToInt32() + sessionList[sessionList.Count - 1].Members.Count,
                         team = sessionList[sessionList.Count - 1].lastTeam
@@ -53,17 +52,16 @@ namespace JusinChatServer
                     _ = JoinSeq();
                 }
 
+                if (init)
+                    _ = WaitQuit();
+
                 if (sessionList[sessionList.Count - 1].Members.Count == 2 && !sessionList[sessionList.Count - 1].isStart)
-                {
                     _ = WaitStartSeq(sessionList[sessionList.Count - 1].Members[0].Client);
-                }
 
                 if (sessionList[sessionList.Count - 1].Members.Count == 2)
-                {
                     _ = HandleClient(sessionList.Count - 1);
-                }
 
-                if (sessionList[sessionList.Count - 1].isStart)
+                if (sessionList[sessionList.Count - 1].isStart || sessionList[sessionList.Count - 1].IsClose || sessionList.Count == 0)
                 {
                     sessionList.Add(new SessionModel()
                     {
@@ -82,10 +80,13 @@ namespace JusinChatServer
             {
                 if (session.isStart && !session.IsClose)
                 {
+                    if (session.streamList.Count == 0)
+                        continue;
+                    
                     foreach (var stream in session.streamList)
                     {
                         int len = await stream.ReadAsync(buffer, 0, buffer.Length);
-                        if (len == 0) break;
+                        if (len == 0) continue;
 
                         msg = Encoding.UTF8.GetString(buffer, 0, len);
                         Console.WriteLine($"Clinet : {msg}");
@@ -93,7 +94,7 @@ namespace JusinChatServer
                         if (msg == "Quit")
                         {
                             session.IsClose = true;
-                            break;
+                            continue;
                         }
 
                         foreach (var innerStream in session.streamList)
@@ -131,6 +132,9 @@ namespace JusinChatServer
             {
                 foreach (var item in currentSession.Members)
                 {
+                    if (item.Client == null)
+                        continue;
+                    
                     var stream = item.Client.GetStream();
                     byte[] data = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(listJoinMsg));
                     await stream.WriteAsync(data, 0, data.Length);
@@ -159,6 +163,62 @@ namespace JusinChatServer
             if (sessionList[sessionList.Count - 1].isStart)
             {
                 listJoinMsg.Clear();
+            }
+        }
+
+        static async Task WaitQuit()
+        {
+            init = false;
+            byte[] buffer = new byte[1024];
+            while (true)
+            {
+                try
+                {
+                    foreach (var session in sessionList)
+                    {
+                        if (session.IsClose)
+                        {
+                            sessionList.Remove(session);
+                            if (sessionList.Count == 0)
+                            {
+                                sessionList.Add(new SessionModel()
+                                {
+                                    Id = gId++
+                                });
+                                lastTeam = true;
+                            }
+                            continue;
+                        }
+
+                        if (!session.isStart)
+                        {
+                            foreach (var stream in session.streamList)
+                            {
+                                if (stream == null) continue;
+
+                                int len = await stream.ReadAsync(buffer, 0, buffer.Length);
+                                if (len == 0) continue;
+
+                                msg = Encoding.UTF8.GetString(buffer, 0, len);
+                                if (msg == "Quit")
+                                {
+                                    Console.WriteLine($"Clinet : {msg}");
+                                    session.IsClose = true;
+                                    listJoinMsg.Clear();
+                                    foreach (var member in session.Members)
+                                    {
+                                        member.Client.Close();
+                                    }
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                }
             }
         }
     }
