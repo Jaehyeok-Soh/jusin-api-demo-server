@@ -3,13 +3,13 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using Newtonsoft.Json;
+using System.IO;
 
 namespace JusinChatServer
 {
     public class Program
     {
         static string msg = "";
-        static List<ConnectInfoModel> listJoinMsg = new List<ConnectInfoModel>();
         static List<SessionModel> sessionList = new List<SessionModel>();
 
         static bool lastTeam = true;
@@ -31,88 +31,92 @@ namespace JusinChatServer
             while (true)
             {
                 TcpClient client = await listener.AcceptTcpClientAsync();
+                var session = sessionList[sessionList.Count - 1];
 
-                if (sessionList[sessionList.Count - 1].Members.Count < 3 && !sessionList[sessionList.Count - 1].isStart)
+                if (session.isStart || session.IsClose || session.Members.Count >= 2)
                 {
-                    var connectInfo = new ConnectInfoModel()
-                    { 
-                        isHost = sessionList[sessionList.Count - 1].Members.Count == 0,
-                        netId = client.Client.Handle.ToInt32() + sessionList[sessionList.Count - 1].Members.Count,
-                        team = sessionList[sessionList.Count - 1].lastTeam
-                    };
-
-                    sessionList[sessionList.Count - 1].Members
-                        .Add(
-                            new MemberInfo(client,
-                                connectInfo,
-                                out lastTeam)
-                            );
-                    sessionList[sessionList.Count - 1].streamList.Add(client.GetStream());
-                    sessionList[sessionList.Count - 1].lastTeam = lastTeam;
-                    _ = JoinSeq();
+                    session = new SessionModel() { Id = gId++ };
+                    sessionList.Add(session);
                 }
 
-                if (init)
-                    _ = WaitQuit();
-
-                if (sessionList[sessionList.Count - 1].Members.Count == 2 && !sessionList[sessionList.Count - 1].isStart)
-                    _ = WaitStartSeq(sessionList[sessionList.Count - 1].Members[0].Client);
-
-                if (sessionList[sessionList.Count - 1].Members.Count == 2)
-                    _ = HandleClient(sessionList.Count - 1);
-
-                if (sessionList[sessionList.Count - 1].isStart || sessionList[sessionList.Count - 1].IsClose || sessionList.Count == 0)
+                var connectInfo = new ConnectInfoModel()
                 {
-                    sessionList.Add(new SessionModel()
-                    {
-                        Id = gId++
-                    });
-                    lastTeam = true;
+                    isHost = session.Members.Count == 0,
+                    netId = client.Client.Handle.ToInt32() + session.Members.Count,
+                    team = session.lastTeam
+                };
+
+                var member = new MemberInfo(client, connectInfo, out lastTeam);
+                session.Members.Add(member);
+                session.lastTeam = lastTeam;
+
+                session.JoinMsg.Add(connectInfo);
+
+                var json = JsonConvert.SerializeObject(session.JoinMsg);
+                foreach (var item in session.Members)
+                {
+                    await item.Client.GetStream().WriteAsync(Encoding.UTF8.GetBytes(json));
                 }
+
+                _ = HandleClient(sessionList.Count - 1, member);
             }
         }
 
-        static async Task HandleClient(int sessionId)
+        static async Task HandleClient(int sessionId, MemberInfo member)
         {
-            byte[] buffer = new byte[4096];
+            byte[] buffer = new byte[1024];
             var session = sessionList[sessionId];
+            var stream = member.Client.GetStream();
+
             while (!session.IsClose)
             {
-                if (session.isStart && !session.IsClose)
+                int len;
+                try
                 {
-                    if (session.streamList.Count == 0)
-                        continue;
-                    
-                    foreach (var stream in session.streamList)
-                    {
-                        int len = await stream.ReadAsync(buffer, 0, buffer.Length);
-                        if (len == 0) continue;
-
-                        msg = Encoding.UTF8.GetString(buffer, 0, len);
-                        Console.WriteLine($"Clinet : {msg}");
-
-                        if (msg == "Quit")
-                        {
-                            session.IsClose = true;
-                            continue;
-                        }
-
-                        foreach (var innerStream in session.streamList)
-                        {
-                            if (stream == innerStream)
-                                continue;
-
-                            byte[] data = Encoding.UTF8.GetBytes(msg);
-                            await innerStream.WriteAsync(data, 0, data.Length);
-                        }
-                    }
+                    len = await stream.ReadAsync(buffer, 0, buffer.Length);
+                    if (len == 0) break;
                 }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                    session.IsClose = true;
+                    foreach (var item in session.Members)
+                    {
+                        item.Client.Close();
+                    }
+                    break;
+                }
+
+                msg = Encoding.UTF8.GetString(buffer, 0, len);
+                if (msg == "Quit")
+                {
+                    session.IsClose = true;
+                    foreach (var item in session.Members)
+                    {
+                        item.Client.Close();
+                    }
+                    break;
+                }
+
+                if (msg == "true" && !session.isStart)
+                {
+                    session.isStart = true;
+                }
+
+                byte[] data = Encoding.UTF8.GetBytes(msg);
+
+                var tasks = session.Members
+                    .Where(item => item != member)
+                    .Select(item =>
+                    {
+                        var stream = item.Client.GetStream();
+                        return stream.WriteAsync(data, 0, data.Length);
+                    });
+
+                await Task.WhenAll(tasks);
             }
 
-            foreach (var member in session.Members)
-            {
-                member.Client.Close();
-            }
+            member.Client.Close();
         }
 
         static async Task JoinSeq()
@@ -126,20 +130,20 @@ namespace JusinChatServer
             var lastMember = currentSession.Members[currentSession.Members.Count - 1];
 
 
-            listJoinMsg.Add(lastMember.ConnectInfo);
+            //listJoinMsg.Add(lastMember.ConnectInfo);
 
-            if (listJoinMsg.Count > 0 && listJoinMsg.Count < 3)
-            {
-                foreach (var item in currentSession.Members)
-                {
-                    if (item.Client == null)
-                        continue;
-                    
-                    var stream = item.Client.GetStream();
-                    byte[] data = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(listJoinMsg));
-                    await stream.WriteAsync(data, 0, data.Length);
-                }
-            }
+            //if (listJoinMsg.Count > 0 && listJoinMsg.Count < 3)
+            //{
+            //    foreach (var item in currentSession.Members)
+            //    {
+            //        if (item.Client == null)
+            //            continue;
+
+            //        var stream = item.Client.GetStream();
+            //        byte[] data = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(listJoinMsg));
+            //        await stream.WriteAsync(data, 0, data.Length);
+            //    }
+            //}
         }
 
         static async Task WaitStartSeq(TcpClient client)
@@ -147,79 +151,28 @@ namespace JusinChatServer
             var stream = client.GetStream();
             byte[] buffer = new byte[1024];
 
-            while (!sessionList[sessionList.Count - 1].isStart)
-            {
-                int len = await stream.ReadAsync(buffer, 0, buffer.Length);
-                if (len == 0) break;
+            //while (!sessionList[sessionList.Count - 1].isStart)
+            //{
+            //    int len = await stream.ReadAsync(buffer, 0, buffer.Length);
+            //    if (len == 0) break;
 
-                msg = Encoding.UTF8.GetString(buffer, 0, len);
-                Console.WriteLine($"Start : {msg}");
-                if (msg == "true")
-                {
-                    sessionList[sessionList.Count - 1].isStart = true;
-                }
-            }
+            //    msg = Encoding.UTF8.GetString(buffer, 0, len);
+            //    Console.WriteLine($"Start : {msg}");
+            //    if (msg == "true")
+            //    {
+            //        sessionList[sessionList.Count - 1].isStart = true;
+            //    }
+            //    if (msg == "Quit")
+            //    {
+            //        sessionList[sessionList.Count - 1].IsClose = true;
+            //        listJoinMsg.Clear();
+            //    }
+            //}
 
-            if (sessionList[sessionList.Count - 1].isStart)
-            {
-                listJoinMsg.Clear();
-            }
-        }
-
-        static async Task WaitQuit()
-        {
-            init = false;
-            byte[] buffer = new byte[1024];
-            while (true)
-            {
-                try
-                {
-                    foreach (var session in sessionList)
-                    {
-                        if (session.IsClose)
-                        {
-                            sessionList.Remove(session);
-                            if (sessionList.Count == 0)
-                            {
-                                sessionList.Add(new SessionModel()
-                                {
-                                    Id = gId++
-                                });
-                                lastTeam = true;
-                            }
-                            continue;
-                        }
-
-                        if (!session.isStart)
-                        {
-                            foreach (var stream in session.streamList)
-                            {
-                                if (stream == null) continue;
-
-                                int len = await stream.ReadAsync(buffer, 0, buffer.Length);
-                                if (len == 0) continue;
-
-                                msg = Encoding.UTF8.GetString(buffer, 0, len);
-                                if (msg == "Quit")
-                                {
-                                    Console.WriteLine($"Clinet : {msg}");
-                                    session.IsClose = true;
-                                    listJoinMsg.Clear();
-                                    foreach (var member in session.Members)
-                                    {
-                                        member.Client.Close();
-                                    }
-                                    continue;
-                                }
-                            }
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(ex.Message);
-                }
-            }
+            //if (sessionList[sessionList.Count - 1].isStart)
+            //{
+            //    listJoinMsg.Clear();
+            //}
         }
     }
 }

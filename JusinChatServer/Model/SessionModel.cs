@@ -16,7 +16,7 @@ namespace JusinChatServer.Model
         //멤버에게 다른 멤버의 정보를 제공
         //멤버는 플레이어블 정보를 제공
         public List<MemberInfo> Members { get; set; } = new List<MemberInfo>();
-        public List<NetworkStream> streamList { get; set; } = new List<NetworkStream>();
+        public List<ConnectInfoModel> JoinMsg { get; set; } = new List<ConnectInfoModel>();
         public bool isStart { get; set; } = false;
         public bool lastTeam { get; set; } = true;
         public bool IsClose { get; set; } = false;
