@@ -27,7 +27,6 @@ namespace JusinChatServer
                 Id = gId++
             });
 
-
             while (true)
             {
                 TcpClient client = await listener.AcceptTcpClientAsync();
@@ -64,7 +63,7 @@ namespace JusinChatServer
 
         static async Task HandleClient(int sessionId, MemberInfo member)
         {
-            byte[] buffer = new byte[1024];
+            byte[] buffer = new byte[4096];
             var session = sessionList[sessionId];
             var stream = member.Client.GetStream();
 
@@ -117,62 +116,6 @@ namespace JusinChatServer
             }
 
             member.Client.Close();
-        }
-
-        static async Task JoinSeq()
-        {
-            //TODO:
-            //접속자의 플레이어 m_bIsMine = true로 할당하는 방법
-            //타 접속자의 정보도 추가해줘야함
-            //신규 접속자 발생 시 기존 접속자에게 타 접속자의 정보 추가하는 방법
-
-            var currentSession = sessionList[sessionList.Count - 1];
-            var lastMember = currentSession.Members[currentSession.Members.Count - 1];
-
-
-            //listJoinMsg.Add(lastMember.ConnectInfo);
-
-            //if (listJoinMsg.Count > 0 && listJoinMsg.Count < 3)
-            //{
-            //    foreach (var item in currentSession.Members)
-            //    {
-            //        if (item.Client == null)
-            //            continue;
-
-            //        var stream = item.Client.GetStream();
-            //        byte[] data = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(listJoinMsg));
-            //        await stream.WriteAsync(data, 0, data.Length);
-            //    }
-            //}
-        }
-
-        static async Task WaitStartSeq(TcpClient client)
-        {
-            var stream = client.GetStream();
-            byte[] buffer = new byte[1024];
-
-            //while (!sessionList[sessionList.Count - 1].isStart)
-            //{
-            //    int len = await stream.ReadAsync(buffer, 0, buffer.Length);
-            //    if (len == 0) break;
-
-            //    msg = Encoding.UTF8.GetString(buffer, 0, len);
-            //    Console.WriteLine($"Start : {msg}");
-            //    if (msg == "true")
-            //    {
-            //        sessionList[sessionList.Count - 1].isStart = true;
-            //    }
-            //    if (msg == "Quit")
-            //    {
-            //        sessionList[sessionList.Count - 1].IsClose = true;
-            //        listJoinMsg.Clear();
-            //    }
-            //}
-
-            //if (sessionList[sessionList.Count - 1].isStart)
-            //{
-            //    listJoinMsg.Clear();
-            //}
         }
     }
 }
