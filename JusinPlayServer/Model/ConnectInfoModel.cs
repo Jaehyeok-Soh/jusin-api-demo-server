@@ -11,5 +11,6 @@ namespace JusinChatServer.Model
         public bool isHost { get; set; } = false;
         public int netId { get; set; } = 0;
         public bool team { get; set; } = true;
+        public int job { get; set; } = 0;
     }
 }

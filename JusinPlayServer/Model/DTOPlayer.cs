@@ -21,5 +21,8 @@ namespace JusinChatServer.Model
         public int m_iBushOption { get; set; }
         public bool m_bIsUsingSkill { get; set; }
         public int m_iCurrentSkill { get; set; }
+        public bool isStart { get; set; }
+        public bool isQuit { get; set; }
+        public string winner { get; set; } = string.Empty;
     }
 }

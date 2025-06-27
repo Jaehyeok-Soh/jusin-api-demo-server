@@ -13,6 +13,7 @@ namespace JusinChatServer
         static List<SessionModel> sessionList = new List<SessionModel>();
 
         static bool lastTeam = true;
+        static int lastJob = 0;
         static int gId = 0;
         static bool init = true;
 
@@ -36,13 +37,15 @@ namespace JusinChatServer
                 {
                     session = new SessionModel() { Id = gId++ };
                     sessionList.Add(session);
+                    lastJob = 0;
                 }
 
                 var connectInfo = new ConnectInfoModel()
                 {
                     isHost = session.Members.Count == 0,
                     netId = client.Client.Handle.ToInt32() + session.Members.Count,
-                    team = session.lastTeam
+                    team = session.lastTeam,
+                    job = lastJob++
                 };
 
                 var member = new MemberInfo(client, connectInfo, out lastTeam);
@@ -87,32 +90,49 @@ namespace JusinChatServer
                 }
 
                 msg = Encoding.UTF8.GetString(buffer, 0, len);
-                if (msg == "Quit")
+
+                try
                 {
-                    session.IsClose = true;
-                    foreach (var item in session.Members)
+                    if (msg == "")
+                        continue;
+                    
+                    DTOPlayer? dtoPlayer = JsonConvert.DeserializeObject<DTOPlayer>(msg);
+
+                    if (dtoPlayer == null)
+                        continue;
+
+                    if (dtoPlayer.isQuit)
                     {
-                        item.Client.Close();
+                        session.IsClose = true;
+                        foreach (var item in session.Members)
+                        {
+                            item.Client.Close();
+                        }
+                        break;
                     }
-                    break;
-                }
 
-                if (msg == "true" && !session.isStart)
-                {
-                    session.isStart = true;
-                }
-
-                byte[] data = Encoding.UTF8.GetBytes(msg);
-
-                var tasks = session.Members
-                    .Where(item => item != member)
-                    .Select(item =>
+                    if (dtoPlayer.isStart && !session.isStart)
                     {
-                        var stream = item.Client.GetStream();
-                        return stream.WriteAsync(data, 0, data.Length);
-                    });
+                        session.isStart = true;
+                    }
 
-                await Task.WhenAll(tasks);
+                    byte[] data = Encoding.UTF8.GetBytes(msg);
+
+                    var tasks = session.Members
+                        .Where(item => item != member)
+                        .Select(item =>
+                        {
+                            var stream = item.Client.GetStream();
+                            return stream.WriteAsync(data, 0, data.Length);
+                        });
+
+                    await Task.WhenAll(tasks);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                    continue;
+                }
             }
 
             member.Client.Close();
