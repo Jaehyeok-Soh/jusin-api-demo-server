@@ -24,5 +24,7 @@ namespace JusinChatServer.Model
         public bool isStart { get; set; }
         public bool isQuit { get; set; }
         public string winner { get; set; } = string.Empty;
+        public string accont { get; set; } = string.Empty;
+        public bool isDead { get; set; } = false;
     }
 }
